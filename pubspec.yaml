@@ -1,0 +1,16 @@
+name: idle_save
+description: Versioned save + migration chain + integrity helpers for idle_core states.
+version: 0.1.0
+repository: https://github.com/tac0de/idle_save
+
+environment:
+  sdk: ">=3.0.0 <4.0.0"
+
+dependencies:
+  clock: ^1.1.1
+  crypto: ^3.0.3
+  idle_core: ^0.1.2
+
+dev_dependencies:
+  lints: ^3.0.0
+  test: ^1.25.0
