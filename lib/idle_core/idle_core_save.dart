@@ -15,6 +15,9 @@ typedef IdleStateDecoder<S extends IdleState> = S Function(
 /// Builds a [SaveManager] wired for `idle_core` [IdleState] types.
 ///
 /// Uses [IdleState.toJson] for encoding and the provided [decoder] for loading.
+/// Provide [tickClock] to reuse the game clock for timestamps, or [clock]
+/// to override it directly. Set [validatePayload] to `false` only if you
+/// provide a custom codec that supports non-JSON values.
 SaveManager<S> idleCoreSaveManager<S extends IdleState>({
   required SaveStore store,
   required SaveCodec codec,
@@ -26,6 +29,7 @@ SaveManager<S> idleCoreSaveManager<S extends IdleState>({
   Checksum checksum = const Checksum(),
   bool useChecksum = true,
   bool verifyChecksum = true,
+  bool validatePayload = true,
 }) {
   final effectiveClock = clock ??
       (tickClock != null
@@ -43,5 +47,6 @@ SaveManager<S> idleCoreSaveManager<S extends IdleState>({
     checksum: checksum,
     useChecksum: useChecksum,
     verifyChecksum: verifyChecksum,
+    validatePayload: validatePayload,
   );
 }

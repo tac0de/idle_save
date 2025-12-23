@@ -1,5 +1,7 @@
 # Changelog
 
+## 0.1.1
+
 ## 0.1.0
 
 - Initial release with save envelope, codec, checksum, migrations, store, and save manager.

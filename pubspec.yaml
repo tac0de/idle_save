@@ -1,6 +1,6 @@
 name: idle_save
 description: Versioned save + migration chain + integrity helpers for idle_core states.
-version: 0.1.0
+version: 0.1.1
 repository: https://github.com/tac0de/idle_save
 
 environment:

@@ -1,4 +1,6 @@
+/// Wrapper around a JSON-safe payload with schema metadata.
 class SaveEnvelope {
+  /// Creates a save envelope with schema/timestamp metadata.
   const SaveEnvelope({
     required this.schemaVersion,
     required this.createdAtMs,
@@ -7,12 +9,22 @@ class SaveEnvelope {
     this.checksum,
   });
 
+  /// Schema version of the payload.
   final int schemaVersion;
+
+  /// Creation timestamp in milliseconds since epoch.
   final int createdAtMs;
+
+  /// Last update timestamp in milliseconds since epoch.
   final int updatedAtMs;
+
+  /// JSON-safe payload.
   final Map<String, dynamic> payload;
+
+  /// Optional checksum over the payload.
   final String? checksum;
 
+  /// Returns a copy with selected fields replaced.
   SaveEnvelope copyWith({
     int? schemaVersion,
     int? createdAtMs,
@@ -31,6 +43,7 @@ class SaveEnvelope {
     );
   }
 
+  /// Serializes the envelope to a JSON-safe map.
   Map<String, dynamic> toJson() {
     return {
       'schemaVersion': schemaVersion,
@@ -41,6 +54,7 @@ class SaveEnvelope {
     };
   }
 
+  /// Parses an envelope from a JSON-safe map.
   static SaveEnvelope fromJson(Map<String, dynamic> json) {
     final schemaVersion = json['schemaVersion'];
     final createdAtMs = json['createdAtMs'];

@@ -1,3 +1,4 @@
+// ignore_for_file: public_member_api_docs
 import 'package:clock/clock.dart';
 import 'package:idle_save/idle_save.dart';
 import 'package:test/test.dart';

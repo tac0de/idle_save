@@ -1,0 +1,11 @@
+.dart_tool/
+.pub/
+build/
+coverage/
+.DS_Store
+
+# Keep examples included in package publishing.
+!example/
+!example/example.dart
+!example/simple_state_save.dart
+!example/demo_app.dart

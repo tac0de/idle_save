@@ -28,7 +28,7 @@ Future<void> main() async {
     decoder: GameState.fromJson,
   );
 
-  await manager.save(const GameState(level: 2, coins: 50));
+  await manager.save(const GameState(level: 1, coins: 10));
 
   final result = await manager.load();
   if (result case LoadSuccess<GameState>(:final value)) {

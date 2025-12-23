@@ -1,26 +1,48 @@
 import 'package:clock/clock.dart';
 
 import '../checksum/checksum.dart';
+import '../codec/json_safe.dart';
 import '../codec/save_codec.dart';
 import '../envelope/save_envelope.dart';
 import '../migrator/migrator.dart';
 import '../store/save_store.dart';
 
+/// Reason for a failed load operation.
 enum LoadFailureReason {
+  /// No save data was found.
   notFound,
+
+  /// Data could not be decoded by the codec.
   invalidJson,
+
+  /// Envelope metadata failed validation.
   invalidEnvelope,
+
+  /// Payload is not JSON-safe or fails validation.
+  invalidPayload,
+
+  /// Payload checksum did not match.
   checksumMismatch,
+
+  /// Required migration step is missing.
   migrationMissing,
+
+  /// Migration failed with an unexpected error.
   migrationFailed,
+
+  /// Save schema is newer than the latest known version.
   futureSchema,
 }
 
+/// Base type for load results.
 sealed class LoadResult<T> {
+  /// Creates a load result.
   const LoadResult();
 }
 
+/// Successful load result.
 class LoadSuccess<T> extends LoadResult<T> {
+  /// Creates a success result.
   const LoadSuccess({
     required this.value,
     required this.envelope,
@@ -28,23 +50,40 @@ class LoadSuccess<T> extends LoadResult<T> {
     required this.fromBackup,
   });
 
+  /// Loaded value after optional migration.
   final T value;
+
+  /// The parsed envelope metadata.
   final SaveEnvelope envelope;
+
+  /// Whether a migration was applied.
   final bool migrated;
+
+  /// Whether the data came from the backup store.
   final bool fromBackup;
 }
 
+/// Failed load result.
 class LoadFailure extends LoadResult<Never> {
+  /// Creates a failure result.
   const LoadFailure({
     required this.reason,
     required this.raw,
   });
 
+  /// Failure reason.
   final LoadFailureReason reason;
+
+  /// Raw payload when available.
   final String? raw;
 }
 
+/// Coordinates saving, loading, and migrations for a payload type.
 class SaveManager<T> {
+  /// Creates a save manager.
+  ///
+  /// Set [backupStore] to enable fallback reads and backup writes.
+  /// Set [validatePayload] to `false` if your codec handles non-JSON values.
   SaveManager({
     required SaveStore store,
     required SaveCodec codec,
@@ -56,6 +95,7 @@ class SaveManager<T> {
     Checksum checksum = const Checksum(),
     bool useChecksum = true,
     bool verifyChecksum = true,
+    bool validatePayload = true,
   })  : _store = store,
         _backupStore = backupStore,
         _codec = codec,
@@ -65,7 +105,8 @@ class SaveManager<T> {
         _clock = clock ?? const Clock(),
         _checksum = checksum,
         _useChecksum = useChecksum,
-        _verifyChecksum = verifyChecksum;
+        _verifyChecksum = verifyChecksum,
+        _validatePayload = validatePayload;
 
   final SaveStore _store;
   final SaveStore? _backupStore;
@@ -77,15 +118,19 @@ class SaveManager<T> {
   final Checksum _checksum;
   final bool _useChecksum;
   final bool _verifyChecksum;
+  final bool _validatePayload;
 
+  /// Loads the current save without writing it back.
   Future<LoadResult<T>> load() async {
     return _load(writeBack: false);
   }
 
+  /// Loads and persists the migrated save when needed.
   Future<LoadResult<T>> migrateIfNeeded() async {
     return _load(writeBack: true);
   }
 
+  /// Saves a new value, writing the previous value to backup if configured.
   Future<void> save(T value) async {
     final nowMs = _clock.now().millisecondsSinceEpoch;
     final previous = await _readEnvelope(_store, fromBackup: false);
@@ -94,6 +139,9 @@ class SaveManager<T> {
         : nowMs;
 
     final payload = _encoder(value);
+    if (_validatePayload) {
+      JsonSafe.validate(payload);
+    }
     var envelope = SaveEnvelope(
       schemaVersion: _migrator.latestVersion,
       createdAtMs: createdAtMs,
@@ -204,6 +252,17 @@ class SaveManager<T> {
       }
     }
 
+    if (_validatePayload) {
+      try {
+        JsonSafe.validate(envelope.payload);
+      } on FormatException {
+        return LoadFailure(
+          reason: LoadFailureReason.invalidPayload,
+          raw: raw,
+        );
+      }
+    }
+
     return LoadSuccess<_LoadedEnvelope>(
       value: _LoadedEnvelope(
         envelope: envelope,
@@ -239,6 +298,9 @@ class SaveManager<T> {
         fromVersion: envelope.schemaVersion,
         payload: envelope.payload,
       );
+      if (_validatePayload) {
+        JsonSafe.validate(migration.payload);
+      }
       var migratedEnvelope = envelope.copyWith(
         schemaVersion: migration.version,
         payload: migration.payload,
@@ -258,6 +320,11 @@ class SaveManager<T> {
     } on StateError {
       return LoadFailure(
         reason: LoadFailureReason.migrationMissing,
+        raw: loaded.raw,
+      );
+    } on FormatException {
+      return LoadFailure(
+        reason: LoadFailureReason.invalidPayload,
         raw: loaded.raw,
       );
     } catch (_) {

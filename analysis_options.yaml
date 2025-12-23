@@ -33,6 +33,7 @@ linter:
     - prefer_const_declarations
     - prefer_const_literals_to_create_immutables
     - prefer_final_locals
+    - public_member_api_docs
     - require_trailing_commas
     - sort_pub_dependencies
     - test_types_in_equals

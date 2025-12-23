@@ -17,6 +17,51 @@ dependencies:
   idle_save: ^0.1.0
 ```
 
+## Usage guide
+
+1. Define an `IdleState` that can serialize to JSON.
+2. Create a `SaveManager` using `idleCoreSaveManager`.
+3. Call `save()` and `load()` where appropriate in your app lifecycle.
+
+```dart
+import 'package:idle_core/idle_core.dart';
+import 'package:idle_save/idle_save.dart';
+
+class GameState extends IdleState {
+  const GameState({required this.level, required this.coins});
+
+  final int level;
+  final int coins;
+
+  @override
+  Map<String, dynamic> toJson() => {'level': level, 'coins': coins};
+
+  static GameState fromJson(Map<String, dynamic> json) {
+    return GameState(
+      level: json['level'] as int? ?? 0,
+      coins: json['coins'] as int? ?? 0,
+    );
+  }
+}
+
+Future<void> main() async {
+  final store = FileStore('build/save.json');
+  final manager = idleCoreSaveManager<GameState>(
+    store: store,
+    codec: const JsonSaveCodec(),
+    migrator: Migrator(latestVersion: 1),
+    decoder: GameState.fromJson,
+  );
+
+  await manager.save(const GameState(level: 1, coins: 10));
+
+  final result = await manager.load();
+  if (result case LoadSuccess<GameState>(:final value)) {
+    print('Loaded: level=${value.level}, coins=${value.coins}');
+  }
+}
+```
+
 ## 5-min usage
 
 ```dart
@@ -61,10 +106,22 @@ Future<void> main() async {
 
 ## Demo app
 
-Run the small CLI demo:
-
 ```sh
-dart run example/demo_app.dart
+dart run example/example.dart
+```
+
+## File storage
+
+Use the built-in file-backed store for quick persistence:
+
+```dart
+final store = FileStore('build/save.json');
+final manager = idleCoreSaveManager<GameState>(
+  store: store,
+  codec: const JsonSaveCodec(),
+  migrator: Migrator(latestVersion: 1),
+  decoder: GameState.fromJson,
+);
 ```
 
 ## API overview
@@ -112,15 +169,66 @@ final migrator = Migrator(
 );
 ```
 
+After defining migrations, call `migrateIfNeeded()` on startup to write back the
+upgraded save:
+
+```dart
+final result = await manager.migrateIfNeeded();
+if (result case LoadSuccess<GameState>(:final envelope)) {
+  print('Schema version: ${envelope.schemaVersion}');
+}
+```
+
 ## Integrity + backups
 
 - Checksums are computed from the payload and validated on load.
 - Provide a `backupStore` to allow fallback when the primary save is corrupt.
 
+```dart
+final primary = FileStore('build/save.json');
+final backup = FileStore('build/save.bak.json');
+
+final manager = idleCoreSaveManager<GameState>(
+  store: primary,
+  backupStore: backup,
+  codec: const JsonSaveCodec(),
+  migrator: Migrator(latestVersion: 1),
+  decoder: GameState.fromJson,
+);
+```
+
+## Payload validation
+
+`SaveManager` validates that payloads are JSON-safe (no `DateTime`, no
+non-string map keys, no `NaN` or `Infinity`). Disable with
+`validatePayload: false` if you have a custom codec and know what you are
+doing.
+
 ## Load failures
 
 `SaveManager.load()` returns `LoadFailure` for corrupted saves or missing
 migrations. Inspect `LoadFailure.reason` to decide how to recover.
+
+```dart
+final result = await manager.load();
+if (result is LoadFailure) {
+  switch (result.reason) {
+    case LoadFailureReason.checksumMismatch:
+      // Offer reset or fallback.
+      break;
+    case LoadFailureReason.migrationMissing:
+      // Prompt for update or clear save.
+      break;
+    default:
+      break;
+  }
+}
+```
+
+## Save envelope
+
+You can access the `SaveEnvelope` metadata from `LoadSuccess.envelope` to
+inspect timestamps, schema version, or checksum.
 
 ## Status
 
