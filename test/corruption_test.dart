@@ -49,4 +49,30 @@ void main() {
     expect(result, isA<LoadFailure>());
     expect((result as LoadFailure).reason, LoadFailureReason.checksumMismatch);
   });
+
+  test('load returns invalidPayload when decoder throws', () async {
+    final store = MemoryStore();
+    final manager = SaveManager<int>(
+      store: store,
+      codec: const JsonSaveCodec(),
+      migrator: Migrator(latestVersion: 1),
+      encoder: (value) => {'value': value},
+      decoder: (payload) => throw const FormatException('bad payload'),
+      clock: Clock.fixed(DateTime(2024)),
+    );
+
+    const envelope = SaveEnvelope(
+      schemaVersion: 1,
+      createdAtMs: 1,
+      updatedAtMs: 1,
+      payload: {'value': 1},
+    );
+
+    await store.write(const JsonSaveCodec().encode(envelope.toJson()));
+
+    final result = await manager.load();
+
+    expect(result, isA<LoadFailure>());
+    expect((result as LoadFailure).reason, LoadFailureReason.invalidPayload);
+  });
 }

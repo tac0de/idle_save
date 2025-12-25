@@ -30,7 +30,7 @@ Future<void> main() async {
 
   await manager.save(const GameState(level: 1, coins: 10));
 
-  final result = await manager.load();
+  final result = await manager.migrateIfNeeded();
   if (result case LoadSuccess<GameState>(:final value)) {
     print('Loaded: level=${value.level}, coins=${value.coins}');
   }

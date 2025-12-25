@@ -14,14 +14,14 @@ Versioned save + migration chain + integrity helpers for `idle_core` states. Pur
 
 ```yaml
 dependencies:
-  idle_save: ^0.1.0
+  idle_save: ^0.1.2
 ```
 
 ## Usage guide
 
 1. Define an `IdleState` that can serialize to JSON.
 2. Create a `SaveManager` using `idleCoreSaveManager`.
-3. Call `save()` and `load()` where appropriate in your app lifecycle.
+3. Call `save()` and `migrateIfNeeded()` where appropriate in your app lifecycle.
 
 ```dart
 import 'package:idle_core/idle_core.dart';
@@ -55,7 +55,7 @@ Future<void> main() async {
 
   await manager.save(const GameState(level: 1, coins: 10));
 
-  final result = await manager.load();
+  final result = await manager.migrateIfNeeded();
   if (result case LoadSuccess<GameState>(:final value)) {
     print('Loaded: level=${value.level}, coins=${value.coins}');
   }
@@ -97,7 +97,7 @@ Future<void> main() async {
 
   await manager.save(const GameState(level: 1, coins: 10));
 
-  final result = await manager.load();
+  final result = await manager.migrateIfNeeded();
   if (result case LoadSuccess<GameState>(:final value)) {
     print('Loaded: level=${value.level}, coins=${value.coins}');
   }
@@ -206,8 +206,9 @@ doing.
 
 ## Load failures
 
-`SaveManager.load()` returns `LoadFailure` for corrupted saves or missing
-migrations. Inspect `LoadFailure.reason` to decide how to recover.
+`SaveManager.load()` returns `LoadFailure` for corrupted saves, missing
+migrations, or decoder failures. Inspect `LoadFailure.reason` to decide how
+to recover.
 
 ```dart
 final result = await manager.load();

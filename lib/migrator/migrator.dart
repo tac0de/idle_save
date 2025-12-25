@@ -1,6 +1,7 @@
 /// Function that transforms a payload into the next schema version.
 typedef MigrationFn = Map<String, dynamic> Function(
-    Map<String, dynamic> payload);
+  Map<String, dynamic> payload,
+);
 
 /// Single schema migration from [from] to [to].
 class Migration {
@@ -65,7 +66,8 @@ class Migrator {
       final migration = sorted[i];
       if (migration.to != migration.from + 1) {
         throw StateError(
-            'Migration ${migration.from} -> ${migration.to} is not contiguous.');
+          'Migration ${migration.from} -> ${migration.to} is not contiguous.',
+        );
       }
       if (i > 0 && migration.from != sorted[i - 1].to) {
         throw StateError('Migration chain has a gap at ${migration.from}.');
@@ -75,7 +77,8 @@ class Migrator {
     final last = sorted.last;
     if (last.to != latestVersion) {
       throw StateError(
-          'Latest version $latestVersion does not match last migration ${last.to}.');
+        'Latest version $latestVersion does not match last migration ${last.to}.',
+      );
     }
   }
 
@@ -86,7 +89,8 @@ class Migrator {
   }) {
     if (fromVersion > latestVersion) {
       throw StateError(
-          'Save schema $fromVersion is newer than latest $latestVersion.');
+        'Save schema $fromVersion is newer than latest $latestVersion.',
+      );
     }
     if (fromVersion == latestVersion) {
       return MigrationResult(version: fromVersion, payload: payload);

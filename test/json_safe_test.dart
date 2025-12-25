@@ -25,7 +25,7 @@ void main() {
   });
 
   test('JsonSafe rejects unsupported values', () {
-    final payload = {'now': DateTime(2024, 1, 1)};
+    final payload = {'now': DateTime(2024)};
 
     expect(() => JsonSafe.validate(payload), throwsFormatException);
     expect(JsonSafe.isJsonSafe(payload), false);

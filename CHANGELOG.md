@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.2
+
+- Treat decoder failures as invalid payloads on load.
+- Update idle_core dependency and docs.
+
 ## 0.1.1
 
 ## 0.1.0

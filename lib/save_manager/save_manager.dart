@@ -190,7 +190,20 @@ class SaveManager<T> {
       await _store.write(raw);
     }
 
-    final value = _decoder(envelope.payload);
+    T value;
+    try {
+      value = _decoder(envelope.payload);
+    } on FormatException {
+      return LoadFailure(
+        reason: LoadFailureReason.invalidPayload,
+        raw: loaded.raw,
+      );
+    } on TypeError {
+      return LoadFailure(
+        reason: LoadFailureReason.invalidPayload,
+        raw: loaded.raw,
+      );
+    }
 
     return LoadSuccess<T>(
       value: value,
