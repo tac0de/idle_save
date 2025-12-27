@@ -46,4 +46,29 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('Migrator provides context to migrations', () {
+    final migrator = Migrator(
+      latestVersion: 2,
+      migrations: [
+        Migration.withContext(
+          from: 1,
+          to: 2,
+          migrate: (payload, context) => {
+            ...payload,
+            'migratedAtMs': context.nowMs,
+          },
+        ),
+      ],
+    );
+
+    final result = migrator.migrate(
+      fromVersion: 1,
+      payload: {'level': 1},
+      context: const MigrationContext(nowMs: 123),
+    );
+
+    expect(result.version, 2);
+    expect(result.payload['migratedAtMs'], 123);
+  });
 }

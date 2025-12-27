@@ -1,6 +1,6 @@
 name: idle_save
-description: Versioned save + migration chain + integrity helpers for idle_core states.
-version: 0.1.2
+description: Thrilled to introduce a focused save SDK for idle games with deterministic serialization and explicit migrations.
+version: 0.2.0
 repository: https://github.com/tac0de/idle_save
 
 environment:

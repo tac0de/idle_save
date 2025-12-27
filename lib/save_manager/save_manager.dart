@@ -32,6 +32,12 @@ enum LoadFailureReason {
 
   /// Save schema is newer than the latest known version.
   futureSchema,
+
+  /// Reading from the store failed.
+  readFailed,
+
+  /// Writing to the store failed.
+  writeFailed,
 }
 
 /// Base type for load results.
@@ -69,6 +75,8 @@ class LoadFailure extends LoadResult<Never> {
   const LoadFailure({
     required this.reason,
     required this.raw,
+    this.error,
+    this.stackTrace,
   });
 
   /// Failure reason.
@@ -76,6 +84,132 @@ class LoadFailure extends LoadResult<Never> {
 
   /// Raw payload when available.
   final String? raw;
+
+  /// Optional error that caused the failure.
+  final Object? error;
+
+  /// Optional stack trace for the failure.
+  final StackTrace? stackTrace;
+}
+
+/// Reason for a failed save operation.
+enum SaveFailureReason {
+  /// Reading the existing save failed.
+  readFailed,
+
+  /// Payload encoding or validation failed.
+  encodeFailed,
+
+  /// Payload failed JSON-safe validation.
+  invalidPayload,
+
+  /// Writing the backup save failed.
+  backupWriteFailed,
+
+  /// Writing the primary save failed.
+  writeFailed,
+}
+
+/// Named reason for a save boundary.
+class SaveReason {
+  /// Creates a save reason with a custom [value].
+  const SaveReason.custom(this.value)
+      : assert(value.length > 0, 'SaveReason cannot be empty');
+
+  /// A user-invoked manual save.
+  static const manual = SaveReason.custom('manual');
+
+  /// A periodic or automatic save.
+  static const autosave = SaveReason.custom('autosave');
+
+  /// A save triggered by shutdown or backgrounding.
+  static const shutdown = SaveReason.custom('shutdown');
+
+  /// A save triggered by migration or recovery.
+  static const migration = SaveReason.custom('migration');
+
+  /// A save triggered by restoring from backup.
+  static const recovery = SaveReason.custom('recovery');
+
+  /// The underlying reason string.
+  final String value;
+}
+
+/// Context describing why a save was requested.
+class SaveContext {
+  /// Creates a save context.
+  const SaveContext({required this.reason});
+
+  /// Why the save was triggered.
+  final SaveReason reason;
+}
+
+/// Base type for save results.
+sealed class SaveResult {
+  /// Creates a save result.
+  const SaveResult();
+}
+
+/// Successful save result.
+class SaveSuccess extends SaveResult {
+  /// Creates a success result.
+  const SaveSuccess({
+    required this.envelope,
+    required this.raw,
+    required this.context,
+    required this.backupWritten,
+  });
+
+  /// Envelope that was written.
+  final SaveEnvelope envelope;
+
+  /// Raw encoded save data.
+  final String raw;
+
+  /// Context for the save boundary.
+  final SaveContext context;
+
+  /// Whether a backup was written.
+  final bool backupWritten;
+}
+
+/// Failed save result.
+class SaveFailure extends SaveResult {
+  /// Creates a failure result.
+  const SaveFailure({
+    required this.reason,
+    required this.context,
+    this.error,
+    this.stackTrace,
+    this.envelope,
+    this.raw,
+    this.backupWritten = false,
+    this.primaryWritten = false,
+  });
+
+  /// Failure reason.
+  final SaveFailureReason reason;
+
+  /// Context for the save boundary.
+  final SaveContext context;
+
+  /// Optional error that caused the failure.
+  final Object? error;
+
+  /// Optional stack trace for the failure.
+  final StackTrace? stackTrace;
+
+  /// Envelope that was going to be written.
+  final SaveEnvelope? envelope;
+
+  /// Raw encoded save data when available.
+  final String? raw;
+
+  /// Whether a backup write succeeded.
+  final bool backupWritten;
+
+  /// Whether the primary write succeeded.
+  final bool primaryWritten;
 }
 
 /// Coordinates saving, loading, and migrations for a payload type.
@@ -130,35 +264,123 @@ class SaveManager<T> {
     return _load(writeBack: true);
   }
 
-  /// Saves a new value, writing the previous value to backup if configured.
-  Future<void> save(T value) async {
+  /// Saves a new value with an explicit [context].
+  ///
+  /// Returns a [SaveResult] so failures are observable and testable.
+  Future<SaveResult> save(
+    T value, {
+    required SaveContext context,
+  }) async {
     final nowMs = _clock.now().millisecondsSinceEpoch;
-    final previous = await _readEnvelope(_store, fromBackup: false);
-    final createdAtMs = previous is LoadSuccess<_LoadedEnvelope>
-        ? previous.value.envelope.createdAtMs
-        : nowMs;
 
-    final payload = _encoder(value);
+    String? existingRaw;
+    SaveEnvelope? existingEnvelope;
+    try {
+      existingRaw = await _store.read();
+    } catch (error, stackTrace) {
+      return SaveFailure(
+        reason: SaveFailureReason.readFailed,
+        context: context,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
+
+    if (existingRaw != null) {
+      try {
+        final decoded = _codec.decode(existingRaw);
+        existingEnvelope = SaveEnvelope.fromJson(decoded);
+      } catch (_) {
+        existingEnvelope = null;
+      }
+    }
+
+    final createdAtMs = existingEnvelope?.createdAtMs ?? nowMs;
+
+    Map<String, dynamic> payload;
+    try {
+      payload = _encoder(value);
+    } catch (error, stackTrace) {
+      return SaveFailure(
+        reason: SaveFailureReason.encodeFailed,
+        context: context,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
     if (_validatePayload) {
-      JsonSafe.validate(payload);
+      try {
+        JsonSafe.validate(payload);
+      } on FormatException catch (error, stackTrace) {
+        return SaveFailure(
+          reason: SaveFailureReason.invalidPayload,
+          context: context,
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
     }
     var envelope = SaveEnvelope(
       schemaVersion: _migrator.latestVersion,
       createdAtMs: createdAtMs,
       updatedAtMs: nowMs,
       payload: payload,
+      saveReason: context.reason.value,
     );
 
     envelope = _applyChecksum(envelope);
 
-    final raw = _codec.encode(envelope.toJson());
-    if (_backupStore != null) {
-      final existing = await _store.read();
-      if (existing != null) {
-        await _backupStore!.write(existing);
+    String raw;
+    try {
+      raw = _codec.encode(envelope.toJson());
+    } catch (error, stackTrace) {
+      return SaveFailure(
+        reason: SaveFailureReason.encodeFailed,
+        context: context,
+        error: error,
+        stackTrace: stackTrace,
+        envelope: envelope,
+      );
+    }
+
+    var backupWritten = false;
+    if (_backupStore != null && existingRaw != null) {
+      try {
+        await _backupStore!.write(existingRaw);
+        backupWritten = true;
+      } catch (error, stackTrace) {
+        return SaveFailure(
+          reason: SaveFailureReason.backupWriteFailed,
+          context: context,
+          error: error,
+          stackTrace: stackTrace,
+          envelope: envelope,
+          raw: raw,
+          backupWritten: backupWritten,
+        );
       }
     }
-    await _store.write(raw);
+
+    try {
+      await _store.write(raw);
+    } catch (error, stackTrace) {
+      return SaveFailure(
+        reason: SaveFailureReason.writeFailed,
+        context: context,
+        error: error,
+        stackTrace: stackTrace,
+        envelope: envelope,
+        raw: raw,
+        backupWritten: backupWritten,
+      );
+    }
+
+    return SaveSuccess(
+      envelope: envelope,
+      raw: raw,
+      context: context,
+      backupWritten: backupWritten,
+    );
   }
 
   Future<LoadResult<T>> _load({required bool writeBack}) async {
@@ -179,29 +401,78 @@ class SaveManager<T> {
 
     if (writeBack && (loaded.migrated || loaded.fromBackup)) {
       final nowMs = _clock.now().millisecondsSinceEpoch;
-      envelope = _applyChecksum(envelope.copyWith(updatedAtMs: nowMs));
-      final raw = _codec.encode(envelope.toJson());
+      final reason =
+          loaded.fromBackup ? SaveReason.recovery : SaveReason.migration;
+      envelope = _applyChecksum(
+        envelope.copyWith(
+          updatedAtMs: nowMs,
+          saveReason: reason.value,
+        ),
+      );
+      String raw;
+      try {
+        raw = _codec.encode(envelope.toJson());
+      } catch (error, stackTrace) {
+        return LoadFailure(
+          reason: LoadFailureReason.writeFailed,
+          raw: loaded.raw,
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
       if (_backupStore != null) {
-        final existing = await _store.read();
+        String? existing;
+        try {
+          existing = await _store.read();
+        } catch (error, stackTrace) {
+          return LoadFailure(
+            reason: LoadFailureReason.readFailed,
+            raw: loaded.raw,
+            error: error,
+            stackTrace: stackTrace,
+          );
+        }
         if (existing != null) {
-          await _backupStore!.write(existing);
+          try {
+            await _backupStore!.write(existing);
+          } catch (error, stackTrace) {
+            return LoadFailure(
+              reason: LoadFailureReason.writeFailed,
+              raw: loaded.raw,
+              error: error,
+              stackTrace: stackTrace,
+            );
+          }
         }
       }
-      await _store.write(raw);
+      try {
+        await _store.write(raw);
+      } catch (error, stackTrace) {
+        return LoadFailure(
+          reason: LoadFailureReason.writeFailed,
+          raw: loaded.raw,
+          error: error,
+          stackTrace: stackTrace,
+        );
+      }
     }
 
     T value;
     try {
       value = _decoder(envelope.payload);
-    } on FormatException {
+    } on FormatException catch (error, stackTrace) {
       return LoadFailure(
         reason: LoadFailureReason.invalidPayload,
         raw: loaded.raw,
+        error: error,
+        stackTrace: stackTrace,
       );
-    } on TypeError {
+    } on TypeError catch (error, stackTrace) {
       return LoadFailure(
         reason: LoadFailureReason.invalidPayload,
         raw: loaded.raw,
+        error: error,
+        stackTrace: stackTrace,
       );
     }
 
@@ -232,7 +503,17 @@ class SaveManager<T> {
     SaveStore store, {
     required bool fromBackup,
   }) async {
-    final raw = await store.read();
+    String? raw;
+    try {
+      raw = await store.read();
+    } catch (error, stackTrace) {
+      return LoadFailure(
+        reason: LoadFailureReason.readFailed,
+        raw: null,
+        error: error,
+        stackTrace: stackTrace,
+      );
+    }
     if (raw == null) {
       return const LoadFailure(reason: LoadFailureReason.notFound, raw: null);
     }
@@ -310,6 +591,9 @@ class SaveManager<T> {
       final migration = _migrator.migrate(
         fromVersion: envelope.schemaVersion,
         payload: envelope.payload,
+        context: MigrationContext(
+          nowMs: _clock.now().millisecondsSinceEpoch,
+        ),
       );
       if (_validatePayload) {
         JsonSafe.validate(migration.payload);
@@ -340,10 +624,12 @@ class SaveManager<T> {
         reason: LoadFailureReason.invalidPayload,
         raw: loaded.raw,
       );
-    } catch (_) {
+    } catch (error, stackTrace) {
       return LoadFailure(
         reason: LoadFailureReason.migrationFailed,
         raw: loaded.raw,
+        error: error,
+        stackTrace: stackTrace,
       );
     }
   }

@@ -3,14 +3,42 @@ typedef MigrationFn = Map<String, dynamic> Function(
   Map<String, dynamic> payload,
 );
 
+/// Function that transforms a payload into the next schema version with context.
+typedef MigrationFnWithContext = Map<String, dynamic> Function(
+  Map<String, dynamic> payload,
+  MigrationContext context,
+);
+
+/// Context provided to migrations for deterministic data.
+class MigrationContext {
+  /// Creates a migration context.
+  const MigrationContext({required this.nowMs});
+
+  /// Creates a migration context with an unknown timestamp.
+  const MigrationContext.none() : nowMs = 0;
+
+  /// Timestamp in milliseconds since epoch.
+  final int nowMs;
+}
+
 /// Single schema migration from [from] to [to].
 class Migration {
   /// Creates a migration definition.
-  const Migration({
+  Migration({
     required this.from,
     required this.to,
     required this.migrate,
-  });
+  }) : _migrateWithContext = _wrap(migrate);
+
+  /// Creates a migration definition that uses [MigrationContext].
+  Migration.withContext({
+    required this.from,
+    required this.to,
+    required MigrationFnWithContext migrate,
+  })  : migrate = ((payload) {
+          return migrate(payload, const MigrationContext.none());
+        }),
+        _migrateWithContext = migrate;
 
   /// Source schema version.
   final int from;
@@ -20,6 +48,20 @@ class Migration {
 
   /// Migration callback for transforming payloads.
   final MigrationFn migrate;
+
+  final MigrationFnWithContext _migrateWithContext;
+
+  /// Applies the migration using [context].
+  Map<String, dynamic> apply(
+    Map<String, dynamic> payload,
+    MigrationContext context,
+  ) {
+    return _migrateWithContext(payload, context);
+  }
+}
+
+MigrationFnWithContext _wrap(MigrationFn migrate) {
+  return (payload, _) => migrate(payload);
 }
 
 /// Result of applying a migration chain.
@@ -86,7 +128,9 @@ class Migrator {
   MigrationResult migrate({
     required int fromVersion,
     required Map<String, dynamic> payload,
+    MigrationContext? context,
   }) {
+    final migrationContext = context ?? const MigrationContext.none();
     if (fromVersion > latestVersion) {
       throw StateError(
         'Save schema $fromVersion is newer than latest $latestVersion.',
@@ -108,8 +152,10 @@ class Migrator {
       if (migration == null) {
         throw StateError('Missing migration from $currentVersion.');
       }
-      final nextPayload =
-          migration.migrate(Map<String, dynamic>.from(currentPayload));
+      final nextPayload = migration.apply(
+        Map<String, dynamic>.from(currentPayload),
+        migrationContext,
+      );
       currentPayload = Map<String, dynamic>.from(nextPayload);
       currentVersion = migration.to;
     }

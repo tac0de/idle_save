@@ -55,10 +55,18 @@ void main() {
     final backup = MemoryStore();
     final manager = buildManager(store: primary, backup: backup);
 
-    await manager.save({'coins': 5});
+    final firstResult = await manager.save(
+      {'coins': 5},
+      context: const SaveContext(reason: SaveReason.manual),
+    );
+    expect(firstResult, isA<SaveSuccess>());
     final firstRaw = await primary.read();
 
-    await manager.save({'coins': 10});
+    final secondResult = await manager.save(
+      {'coins': 10},
+      context: const SaveContext(reason: SaveReason.autosave),
+    );
+    expect(secondResult, isA<SaveSuccess>());
     final backupRaw = await backup.read();
 
     expect(backupRaw, firstRaw);

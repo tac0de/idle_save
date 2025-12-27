@@ -2,6 +2,7 @@
 library idle_save;
 
 export 'checksum/checksum.dart';
+export 'codec/canonical_json_save_codec.dart';
 export 'codec/json_safe.dart';
 export 'codec/json_save_codec.dart';
 export 'codec/save_codec.dart';

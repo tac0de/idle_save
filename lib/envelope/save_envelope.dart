@@ -6,6 +6,7 @@ class SaveEnvelope {
     required this.createdAtMs,
     required this.updatedAtMs,
     required this.payload,
+    this.saveReason,
     this.checksum,
   });
 
@@ -21,6 +22,9 @@ class SaveEnvelope {
   /// JSON-safe payload.
   final Map<String, dynamic> payload;
 
+  /// Optional reason describing why the save was written.
+  final String? saveReason;
+
   /// Optional checksum over the payload.
   final String? checksum;
 
@@ -30,8 +34,11 @@ class SaveEnvelope {
     int? createdAtMs,
     int? updatedAtMs,
     Map<String, dynamic>? payload,
+    Object? saveReason = _sentinel,
     Object? checksum = _sentinel,
   }) {
+    final saveReasonValue =
+        identical(saveReason, _sentinel) ? this.saveReason : saveReason as String?;
     final checksumValue =
         identical(checksum, _sentinel) ? this.checksum : checksum as String?;
     return SaveEnvelope(
@@ -39,6 +46,7 @@ class SaveEnvelope {
       createdAtMs: createdAtMs ?? this.createdAtMs,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
       payload: payload ?? this.payload,
+      saveReason: saveReasonValue,
       checksum: checksumValue,
     );
   }
@@ -50,6 +58,7 @@ class SaveEnvelope {
       'createdAtMs': createdAtMs,
       'updatedAtMs': updatedAtMs,
       'payload': payload,
+      if (saveReason != null) 'saveReason': saveReason,
       if (checksum != null) 'checksum': checksum,
     };
   }
@@ -60,6 +69,7 @@ class SaveEnvelope {
     final createdAtMs = json['createdAtMs'];
     final updatedAtMs = json['updatedAtMs'];
     final payload = json['payload'];
+    final saveReason = json['saveReason'];
     final checksum = json['checksum'];
 
     if (schemaVersion is! int || createdAtMs is! int || updatedAtMs is! int) {
@@ -67,6 +77,9 @@ class SaveEnvelope {
     }
     if (payload is! Map<String, dynamic>) {
       throw const FormatException('Invalid envelope payload');
+    }
+    if (saveReason != null && saveReason is! String) {
+      throw const FormatException('Invalid envelope save reason');
     }
     if (checksum != null && checksum is! String) {
       throw const FormatException('Invalid envelope checksum');
@@ -77,6 +90,7 @@ class SaveEnvelope {
       createdAtMs: createdAtMs,
       updatedAtMs: updatedAtMs,
       payload: payload,
+      saveReason: saveReason as String?,
       checksum: checksum as String?,
     );
   }

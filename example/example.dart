@@ -28,7 +28,13 @@ Future<void> main() async {
     decoder: GameState.fromJson,
   );
 
-  await manager.save(const GameState(level: 1, coins: 10));
+  final saveResult = await manager.save(
+    const GameState(level: 1, coins: 10),
+    context: const SaveContext(reason: SaveReason.manual),
+  );
+  if (saveResult is SaveFailure) {
+    print('Save failed: ${saveResult.reason}');
+  }
 
   final result = await manager.migrateIfNeeded();
   if (result case LoadSuccess<GameState>(:final value)) {
