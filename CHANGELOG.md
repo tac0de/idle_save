@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1
+
+- minor pub score fix.
+
 ## 0.2.0
 
 - Add SaveContext/SaveReason and SaveResult for observable saves.

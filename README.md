@@ -6,7 +6,7 @@
 
 ```yaml
 dependencies:
-  idle_save: ^0.2.0
+  idle_save: ^0.2.1
 ```
 
 ```dart

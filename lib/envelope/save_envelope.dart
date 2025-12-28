@@ -37,8 +37,9 @@ class SaveEnvelope {
     Object? saveReason = _sentinel,
     Object? checksum = _sentinel,
   }) {
-    final saveReasonValue =
-        identical(saveReason, _sentinel) ? this.saveReason : saveReason as String?;
+    final saveReasonValue = identical(saveReason, _sentinel)
+        ? this.saveReason
+        : saveReason as String?;
     final checksumValue =
         identical(checksum, _sentinel) ? this.checksum : checksum as String?;
     return SaveEnvelope(
