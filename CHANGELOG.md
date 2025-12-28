@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+
+- Dart format .
+
 ## 0.3.0
 
 - Require SaveContext to include SaveChangeSet.

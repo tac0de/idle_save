@@ -11,6 +11,5 @@ export 'envelope/save_envelope.dart';
 export 'idle_core/idle_core_save.dart';
 export 'migrator/migrator.dart';
 export 'save_manager/save_manager.dart';
-export 'store/file_store_web.dart'
-    if (dart.library.io) 'store/file_store.dart';
+export 'store/file_store_web.dart' if (dart.library.io) 'store/file_store.dart';
 export 'store/save_store.dart';
