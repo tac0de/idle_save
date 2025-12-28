@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.2
+
+- Package version README update.
+
 ## 0.3.1
 
 - Dart format .

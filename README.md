@@ -6,7 +6,7 @@ Engine-level save SDK for idle games. Deterministic serialization, versioned mig
 
 ```yaml
 dependencies:
-  idle_save: ^0.3.0
+  idle_save: ^0.3.2
 ```
 
 ## Concepts
