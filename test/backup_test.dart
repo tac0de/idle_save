@@ -57,14 +57,20 @@ void main() {
 
     final firstResult = await manager.save(
       {'coins': 5},
-      context: const SaveContext(reason: SaveReason.manual),
+      context: SaveContext(
+        reason: SaveReason.manual,
+        changeSet: SaveChangeSet(updated: ['coins']),
+      ),
     );
     expect(firstResult, isA<SaveSuccess>());
     final firstRaw = await primary.read();
 
     final secondResult = await manager.save(
       {'coins': 10},
-      context: const SaveContext(reason: SaveReason.autosave),
+      context: SaveContext(
+        reason: SaveReason.autosave,
+        changeSet: SaveChangeSet(updated: ['coins']),
+      ),
     );
     expect(secondResult, isA<SaveSuccess>());
     final backupRaw = await backup.read();

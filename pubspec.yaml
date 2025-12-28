@@ -1,6 +1,6 @@
 name: idle_save
-description: Thrilled to introduce a focused save SDK for idle games with deterministic serialization and explicit migrations.
-version: 0.2.1
+description: Engine-level save SDK for idle games: deterministic serialization, versioned migrations, and observable save boundaries.
+version: 0.3.0
 repository: https://github.com/tac0de/idle_save
 
 environment:

@@ -97,6 +97,14 @@ class Migrator {
   List<Migration> get migrations => _migrations;
 
   void _validateChain() {
+    if (latestVersion < 1) {
+      throw StateError('latestVersion must be >= 1.');
+    }
+    if (latestVersion > 1 && _migrations.isEmpty) {
+      throw StateError(
+        'Missing migrations for latestVersion $latestVersion.',
+      );
+    }
     if (_migrations.isEmpty) {
       return;
     }

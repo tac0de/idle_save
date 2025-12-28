@@ -43,7 +43,10 @@ void main() {
 
     final result = await manager.save(
       {'now': DateTime(2024)},
-      context: const SaveContext(reason: SaveReason.manual),
+      context: SaveContext(
+        reason: SaveReason.manual,
+        changeSet: SaveChangeSet(updated: ['now']),
+      ),
     );
 
     expect(result, isA<SaveFailure>());
@@ -61,7 +64,10 @@ void main() {
 
     final result = await manager.save(
       {'coins': 5},
-      context: const SaveContext(reason: SaveReason.autosave),
+      context: SaveContext(
+        reason: SaveReason.autosave,
+        changeSet: SaveChangeSet(updated: ['coins']),
+      ),
     );
 
     expect(result, isA<SaveFailure>());

@@ -3,6 +3,7 @@ import 'package:clock/clock.dart';
 import '../checksum/checksum.dart';
 import '../codec/json_safe.dart';
 import '../codec/save_codec.dart';
+import '../envelope/save_change_set.dart';
 import '../envelope/save_envelope.dart';
 import '../migrator/migrator.dart';
 import '../store/save_store.dart';
@@ -138,10 +139,16 @@ class SaveReason {
 /// Context describing why a save was requested.
 class SaveContext {
   /// Creates a save context.
-  const SaveContext({required this.reason});
+  const SaveContext({
+    required this.reason,
+    required this.changeSet,
+  });
 
   /// Why the save was triggered.
   final SaveReason reason;
+
+  /// What changed in this save boundary.
+  final SaveChangeSet changeSet;
 }
 
 /// Base type for save results.
@@ -326,6 +333,7 @@ class SaveManager<T> {
       updatedAtMs: nowMs,
       payload: payload,
       saveReason: context.reason.value,
+      changeSet: context.changeSet,
     );
 
     envelope = _applyChecksum(envelope);
@@ -403,10 +411,14 @@ class SaveManager<T> {
       final nowMs = _clock.now().millisecondsSinceEpoch;
       final reason =
           loaded.fromBackup ? SaveReason.recovery : SaveReason.migration;
+      final changeSet = loaded.fromBackup
+          ? SaveChangeSet.recovery()
+          : SaveChangeSet.migration();
       envelope = _applyChecksum(
         envelope.copyWith(
           updatedAtMs: nowMs,
           saveReason: reason.value,
+          changeSet: changeSet,
         ),
       );
       String raw;

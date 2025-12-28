@@ -1,3 +1,5 @@
+import 'save_change_set.dart';
+
 /// Wrapper around a JSON-safe payload with schema metadata.
 class SaveEnvelope {
   /// Creates a save envelope with schema/timestamp metadata.
@@ -6,6 +8,7 @@ class SaveEnvelope {
     required this.createdAtMs,
     required this.updatedAtMs,
     required this.payload,
+    this.changeSet,
     this.saveReason,
     this.checksum,
   });
@@ -22,6 +25,9 @@ class SaveEnvelope {
   /// JSON-safe payload.
   final Map<String, dynamic> payload;
 
+  /// Optional change set describing what changed.
+  final SaveChangeSet? changeSet;
+
   /// Optional reason describing why the save was written.
   final String? saveReason;
 
@@ -34,9 +40,13 @@ class SaveEnvelope {
     int? createdAtMs,
     int? updatedAtMs,
     Map<String, dynamic>? payload,
+    Object? changeSet = _sentinel,
     Object? saveReason = _sentinel,
     Object? checksum = _sentinel,
   }) {
+    final changeSetValue = identical(changeSet, _sentinel)
+        ? this.changeSet
+        : changeSet as SaveChangeSet?;
     final saveReasonValue = identical(saveReason, _sentinel)
         ? this.saveReason
         : saveReason as String?;
@@ -47,6 +57,7 @@ class SaveEnvelope {
       createdAtMs: createdAtMs ?? this.createdAtMs,
       updatedAtMs: updatedAtMs ?? this.updatedAtMs,
       payload: payload ?? this.payload,
+      changeSet: changeSetValue,
       saveReason: saveReasonValue,
       checksum: checksumValue,
     );
@@ -59,6 +70,7 @@ class SaveEnvelope {
       'createdAtMs': createdAtMs,
       'updatedAtMs': updatedAtMs,
       'payload': payload,
+      if (changeSet != null) 'changeSet': changeSet!.toJson(),
       if (saveReason != null) 'saveReason': saveReason,
       if (checksum != null) 'checksum': checksum,
     };
@@ -70,6 +82,7 @@ class SaveEnvelope {
     final createdAtMs = json['createdAtMs'];
     final updatedAtMs = json['updatedAtMs'];
     final payload = json['payload'];
+    final changeSet = json['changeSet'];
     final saveReason = json['saveReason'];
     final checksum = json['checksum'];
 
@@ -78,6 +91,13 @@ class SaveEnvelope {
     }
     if (payload is! Map<String, dynamic>) {
       throw const FormatException('Invalid envelope payload');
+    }
+    SaveChangeSet? parsedChangeSet;
+    if (changeSet != null) {
+      if (changeSet is! Map<String, dynamic>) {
+        throw const FormatException('Invalid envelope change set');
+      }
+      parsedChangeSet = SaveChangeSet.fromJson(changeSet);
     }
     if (saveReason != null && saveReason is! String) {
       throw const FormatException('Invalid envelope save reason');
@@ -91,6 +111,7 @@ class SaveEnvelope {
       createdAtMs: createdAtMs,
       updatedAtMs: updatedAtMs,
       payload: payload,
+      changeSet: parsedChangeSet,
       saveReason: saveReason as String?,
       checksum: checksum as String?,
     );

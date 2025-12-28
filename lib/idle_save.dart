@@ -6,6 +6,7 @@ export 'codec/canonical_json_save_codec.dart';
 export 'codec/json_safe.dart';
 export 'codec/json_save_codec.dart';
 export 'codec/save_codec.dart';
+export 'envelope/save_change_set.dart';
 export 'envelope/save_envelope.dart';
 export 'idle_core/idle_core_save.dart';
 export 'migrator/migrator.dart';

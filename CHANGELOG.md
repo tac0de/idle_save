@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.3.0
+
+- Require SaveContext to include SaveChangeSet.
+- Record changeSet in SaveEnvelope metadata.
+- Enforce latestVersion >= 1 and require migrations for versions > 1.
+
 ## 0.2.1
 
 - minor pub score fix.

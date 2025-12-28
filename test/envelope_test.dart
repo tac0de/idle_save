@@ -4,11 +4,12 @@ import 'package:test/test.dart';
 
 void main() {
   test('SaveEnvelope round trips JSON', () {
-    const envelope = SaveEnvelope(
+    final envelope = SaveEnvelope(
       schemaVersion: 1,
       createdAtMs: 100,
       updatedAtMs: 200,
       payload: {'level': 3},
+      changeSet: SaveChangeSet(note: 'level-up'),
       saveReason: 'manual',
       checksum: 'abc',
     );
@@ -20,6 +21,7 @@ void main() {
     expect(decoded.createdAtMs, 100);
     expect(decoded.updatedAtMs, 200);
     expect(decoded.payload, {'level': 3});
+    expect(decoded.changeSet?.note, 'level-up');
     expect(decoded.saveReason, 'manual');
     expect(decoded.checksum, 'abc');
   });
